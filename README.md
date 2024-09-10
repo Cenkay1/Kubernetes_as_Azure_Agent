@@ -27,8 +27,8 @@ This repository provides a comprehensive setup for using Kubernetes agents on Az
 
 Copy Code
 
-    git clone https://github.com/your-username/your-repo.git
-    cd your-repo
+    git clone[ https://github.com/your-username/your-repo.git](https://github.com/Cenkay1/Kubernetes_as_Azure_Agent.git)
+    cd Kubernetes_as_Azure_Agent
 
 **Build Docker Image**
 
@@ -41,8 +41,8 @@ Navigate to the directory containing your Dockerfile and build the image:
 Apply the Kubernetes manifests to your AKS cluster:
 
 
-    kubectl apply -f keda-deployment.yaml
-    kubectl apply -f deployment.yaml
+    kubectl apply -f keda-deployment.yml
+    kubectl apply -f deployment.yml
 
 **Configure KEDA**
 
