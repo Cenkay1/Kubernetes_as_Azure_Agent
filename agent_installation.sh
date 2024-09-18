@@ -70,6 +70,7 @@ print_header "3. Configuring Azure Pipelines agent..."
   --pool "${AZP_POOL}" \
   --work "_work" \
   --replace \
+  --addvirtualmachineresourcetags "${TAG_VALUE}" \
   --acceptTeeEula & wait $!
 
  #--auth "PAT" 
