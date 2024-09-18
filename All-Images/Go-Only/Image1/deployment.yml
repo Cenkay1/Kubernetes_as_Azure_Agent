@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azdevops-go-agent
+  namespace: <namespace>
+spec:
+  replicas: 2
+  progressDeadlineSeconds: 1800
+  selector:
+    matchLabels:
+      app: azdevops-go-agent
+  template:
+    metadata:
+      labels:
+        app: azdevops-go-agent
+    spec:
+      containers:
+        - name: azdevops-go-agent
+          image: <containerregistry.url>/gokubeagent:$(Build.BuildId)
+          ports:
+          - containerPort: 80
+          # resources:
+          #   requests:
+          #     cpu: "1"
+          #     memory: "1G"
+          #   limits:
+          #     cpu: "2"
+          #     memory: "2G"
+          env:
+            - name: AZP_POOL
+              value: <pool.name>
+            - name: AZP_URL
+              value: <url.value>
+            - name: AZP_PAT
+              value: <pat.value>
+            - name: TAG_VALUE
+              value: <tag.value>
+          volumeMounts:
+          - name: docker-graph-storage
+            mountPath: /var/run/docker.sock
+      imagePullSecrets:
+        - name: acr-secret
+      nodeSelector:
+        pool: agent    
+      volumes:
+      - name: docker-graph-storage
+        hostPath:
+            path: /var/run/docker.sock
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: pipeline-auth
+  namespace: <namespace>
+data:
+# base64 encoded pat
+  personalAccessToken: "<pat.value>"
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: pipeline-trigger-auth
+  namespace: <namespace>
+spec:
+  secretTargetRef:
+    - parameter: personalAccessToken
+      name: pipeline-auth
+      key: personalAccessToken
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: pipelines-scaledobject
+  namespace: <namespace>
+spec:
+  scaleTargetRef:
+    name: azdevops-go-agent
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  triggers:
+  - type: azure-pipelines
+    metadata:
+      poolName: "<pool.name>"
+      organizationURLFromEnv: "<url.value>"   
+    authenticationRef:
+     name: pipeline-trigger-auth

@@ -4,7 +4,7 @@ trigger:
 pool:
     name: FloTechnology-Bulutistan
     demands:
-    - TAG_VALUE -equals dep:goonly1
+    - TAG_VALUE -equals goonly
 
 steps:
 - script: echo "Hello World"
