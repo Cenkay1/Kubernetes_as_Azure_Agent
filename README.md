@@ -30,6 +30,11 @@ Copy Code
     git clone[ https://github.com/your-username/your-repo.git](https://github.com/Cenkay1/Kubernetes_as_Azure_Agent.git)
     cd Kubernetes_as_Azure_Agent
 
+    
+**Note**
+
+With --addvirtualmachineresourcetags flag on agent_installation.sh you can give tag to your agent so. You can manage same agent pool for different dependency.
+
 **Build Docker Image**
 
 Navigate to the directory containing your Dockerfile and build the image:
