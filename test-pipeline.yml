@@ -1,0 +1,11 @@
+trigger:
+- master  # master branch'da tetiklenir
+
+pool:
+    name: FloTechnology-Bulutistan
+    demands:
+    - TAG_VALUE -equals dep:goonly1
+
+steps:
+- script: echo "Hello World"
+  displayName: 'Print Hello World'
