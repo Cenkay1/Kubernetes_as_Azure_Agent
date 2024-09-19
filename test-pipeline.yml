@@ -2,7 +2,7 @@ trigger:
 - master  # master branch'da tetiklenir
 
 pool:
-    name: FloTechnology-Bulutistan
+    name: <pool.name>
     demands:
     - TAG_VALUE -equals goonly
 
