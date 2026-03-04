@@ -1,64 +1,214 @@
+# Kubernetes Self-Hosted Azure DevOps Agents with KEDA Autoscaling
 
+Azure DevOps pipeline'larinizi Kubernetes uzerinde calistirmak icin KEDA tabanli otomatik olceklenen self-hosted agent altyapisi.
 
-## **Kubernetes CI/CD Agents on Azure**
+## Mimari
 
-**Overview**
+```
+Azure DevOps Pipeline Queue
+        |
+        v
+  KEDA ScaledObject ──── Pipeline kuyruk derinligini izler (15sn aralikla)
+        |
+        v
+  Deployment (0-10 replica)
+        |
+        v
+  Agent Pod ──────────── Azure DevOps'a otomatik kayit
+        |
+        v
+  Pipeline Job calistirilir ── Bittikten sonra KEDA scale-down (5dk cooldown)
+```
 
-This repository provides a comprehensive setup for using Kubernetes agents on Azure to run CI/CD pipelines. It includes configurations for KEDA-based autoscaling, Dockerfile for building your application, and Kubernetes manifests for deploying the setup.
+## Proje Yapisi
 
-**Key Components**
+```
+Kubernetes_as_Azure_Agent/
+├── images/
+│   ├── base/
+│   │   ├── Dockerfile                # Minimal base image (sadece agent gereksinimleri)
+│   │   └── agent_installation.sh     # Agent bootstrap & Azure DevOps kayit
+│   ├── go/
+│   │   └── Dockerfile                # Go + Node + Python + Azure CLI (multi-stage)
+│   └── node/
+│       └── Dockerfile                # Node + Python + Azure CLI (multi-stage)
+├── k8s/
+│   ├── base/
+│   │   ├── namespace.yml             # Namespace tanimlamasi
+│   │   └── secret.yml                # PAT Secret & KEDA TriggerAuthentication
+│   ├── go/
+│   │   └── deployment.yml            # Go agent Deployment + KEDA ScaledObject
+│   └── node/
+│       └── deployment.yml            # Node agent Deployment + KEDA ScaledObject
+├── charts/
+│   └── azure-devops-agent/           # Helm chart
+│       ├── Chart.yaml
+│       ├── values.yaml               # Default degerler
+│       ├── values-dev.yaml           # Dev ortami overrides
+│       ├── values-prod.yaml          # Prod ortami overrides
+│       └── templates/
+│           ├── _helpers.tpl
+│           ├── secret.yaml
+│           ├── deployment.yaml
+│           └── scaledobject.yaml
+├── pipelines/
+│   ├── build-agent.yml               # Agent image build & deploy pipeline
+│   └── test-pipeline.yml             # Ornek test pipeline
+└── README.md
+```
 
- - KEDA (Kubernetes Event-driven Autoscaling): Automatically scales the number of agents based on workload.
- - Dockerfile: Defines the build process for your application.
- - Kubernetes Manifests: Includes deployment configurations for running your CI/CD agents on Azure Kubernetes Service (AKS).
+## Onkosuller
 
-## Getting Started
+- Azure Kubernetes Service (AKS) cluster
+- KEDA cluster'a kurulu:
+  ```bash
+  helm repo add kedacore https://kedacore.github.io/charts
+  helm install keda kedacore/keda --namespace keda --create-namespace
+  ```
+- Azure Container Registry (ACR) ve AKS'e bagli `acr-secret` ImagePullSecret
+- Azure DevOps organizasyonu ve **Agent Pool (Read & Manage)** yetkili PAT
+- Lokal: Docker, kubectl, Azure CLI
 
-**Prerequisites**
+## Hizli Baslangic
 
- - Azure account with AKS cluster
- - Docker installed
- - Kubernetes CLI (kubectl) installed
- - Azure CLI (az) installed
+### 1. Repo'yu klonla
 
-**Setup**
+```bash
+git clone https://github.com/Cenkay1/Kubernetes_as_Azure_Agent.git
+cd Kubernetes_as_Azure_Agent
+```
 
-**Clone the Repository**
+### 2. Docker image build & push
 
-Copy Code
+```bash
+# Ortak script'i image klasorune kopyala
+cp images/base/agent_installation.sh images/go/
 
-    git clone[ https://github.com/your-username/your-repo.git](https://github.com/Cenkay1/Kubernetes_as_Azure_Agent.git)
-    cd Kubernetes_as_Azure_Agent
+# Go agent
+docker build -t myacr.azurecr.io/gokubeagent:v1.0.0 images/go/
+docker push myacr.azurecr.io/gokubeagent:v1.0.0
 
-    
-**Note**
+# Node agent
+cp images/base/agent_installation.sh images/node/
+docker build -t myacr.azurecr.io/nodekubeagent:v1.0.0 images/node/
+docker push myacr.azurecr.io/nodekubeagent:v1.0.0
+```
 
-With --addvirtualmachineresourcetags flag on agent_installation.sh you can give tag to your agent so. You can manage same agent pool for different dependency.
+### 3. Helm ile deploy et (Onerilen)
 
-**Build Docker Image**
+```bash
+# Dev ortami
+helm install azure-agents charts/azure-devops-agent \
+  -f charts/azure-devops-agent/values-dev.yaml \
+  -n azure-agents --create-namespace
 
-Navigate to the directory containing your Dockerfile and build the image:
+# Prod ortami
+helm install azure-agents charts/azure-devops-agent \
+  -f charts/azure-devops-agent/values-prod.yaml \
+  -n azure-agents --create-namespace
 
-    docker build -t your-image-name .
+# Veya inline degerlerle
+helm install azure-agents charts/azure-devops-agent \
+  -n azure-agents --create-namespace \
+  --set azureDevOps.url="https://dev.azure.com/myorg" \
+  --set azureDevOps.pat="your-pat" \
+  --set azureDevOps.poolName="MyKubePool" \
+  --set image.registry="myacr.azurecr.io"
+```
 
-**Deploy to AKS**
+#### Guncelleme & kaldirma
 
-Apply the Kubernetes manifests to your AKS cluster:
+```bash
+# Degerleri guncelledikten sonra
+helm upgrade azure-agents charts/azure-devops-agent \
+  -f charts/azure-devops-agent/values-prod.yaml \
+  -n azure-agents
 
+# Tamamen kaldirma
+helm uninstall azure-agents -n azure-agents
+```
 
-    kubectl apply -f keda-deployment.yml
-    kubectl apply -f deployment.yml
+### Alternatif: kubectl ile manuel deploy
 
-**Configure KEDA**
+<details>
+<summary>Helm kullanmak istemiyorsaniz</summary>
 
-Ensure KEDA is set up in your cluster for autoscaling. Refer to the KEDA documentation for detailed configuration.
+`k8s/` klasorundeki YAML'lardaki placeholder'lari doldurun:
 
-**Usage**
-The CI/CD agents will scale dynamically based on workload, thanks to KEDA.
-Use the provided Kubernetes manifests to deploy and manage your agents.
+| Placeholder | Aciklama | Ornek |
+|---|---|---|
+| `<CONTAINER_REGISTRY>` | ACR URL | `myacr.azurecr.io` |
+| `<IMAGE_TAG>` | Image tag | `v1.0.0` |
+| `<AGENT_POOL_NAME>` | Azure DevOps pool adi | `MyKubePool` |
+| `<AZURE_DEVOPS_ORG_URL>` | Organizasyon URL | `https://dev.azure.com/myorg` |
+| `<BASE64_ENCODED_PAT>` | base64 PAT | `echo -n "pat" \| base64` |
 
-**Contributing**
-Feel free to submit issues or pull requests if you have suggestions or improvements!
+```bash
+kubectl apply -f k8s/base/
+kubectl apply -f k8s/go/deployment.yml
+kubectl apply -f k8s/node/deployment.yml
+```
 
+</details>
 
-This README provides a solid overview of your project and instructions for getting started. Feel free to adjust any sections to better fit your specific needs.
+### 4. Dogrulama
+
+```bash
+# Pod'larin calistigini kontrol et
+kubectl get pods -n azure-agents
+
+# KEDA ScaledObject durumunu kontrol et
+kubectl get scaledobject -n azure-agents
+
+# Agent loglarini izle
+kubectl logs -f -l agent-type=go -n azure-agents
+
+# Helm release durumu
+helm status azure-agents -n azure-agents
+```
+
+## Ozellikler
+
+### KEDA Autoscaling
+- **Min replica:** 0 (is yokken kaynak tuketmez)
+- **Max replica:** 10
+- **Polling interval:** 15 saniye (kuyruk kontrol sikligi)
+- **Cooldown:** 300 saniye (scale-down oncesi bekleme)
+- Kuyrukta bekleyen job varsa otomatik pod olusturulur
+
+### Agent Etiketleme (Tagging)
+Ayni pool icinde farkli runtime'lara sahip agent'lari etiketleyerek, pipeline'larda belirli agent'lara yonlendirebilirsiniz:
+
+```yaml
+pool:
+  name: MyKubePool
+  demands:
+    - TAG_VALUE -equals goonly
+```
+
+### Guvenlik
+- PAT degeri Kubernetes Secret'ta saklanir, Deployment'a `secretKeyRef` ile inject edilir
+- Liveness/Readiness probe'lari agent sagligini izler
+- Resource requests/limits tanimli (kaynak tuketimi kontrol altinda)
+
+## Yeni Agent Tipi Ekleme
+
+1. `images/<yeni-tip>/Dockerfile` olusturun (gerekli runtime'i ekleyin)
+2. `values.yaml`'a yeni agent tanimlayin:
+   ```yaml
+   agents:
+     python:
+       enabled: true
+       image: pythonkubeagent
+       tag: v1.0.0
+       tagValue: "pythononly"
+       resources:
+         requests:
+           cpu: "500m"
+           memory: "512Mi"
+         limits:
+           cpu: "2"
+           memory: "2Gi"
+   ```
+3. Image'i build & push edin
+4. `helm upgrade` ile deploy edin - Helm otomatik olarak yeni Deployment ve ScaledObject olusturur

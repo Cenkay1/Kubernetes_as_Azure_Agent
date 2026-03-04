@@ -1,0 +1,35 @@
+# Production environment overrides
+azureDevOps:
+  url: "https://dev.azure.com/myorg"
+  pat: "prod-pat-here"
+  poolName: "MyKubePool-Prod"
+
+image:
+  registry: "myacr.azurecr.io"
+
+agents:
+  go:
+    enabled: true
+    tag: v1.0.0
+    resources:
+      requests:
+        cpu: "1"
+        memory: "1Gi"
+      limits:
+        cpu: "4"
+        memory: "4Gi"
+  node:
+    enabled: true
+    tag: v1.0.0
+    resources:
+      requests:
+        cpu: "1"
+        memory: "1Gi"
+      limits:
+        cpu: "4"
+        memory: "4Gi"
+
+scaling:
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  cooldownPeriod: 600

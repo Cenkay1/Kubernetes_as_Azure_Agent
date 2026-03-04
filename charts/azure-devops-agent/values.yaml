@@ -1,0 +1,62 @@
+# Azure DevOps configuration
+azureDevOps:
+  url: ""              # https://dev.azure.com/myorg
+  pat: ""              # Personal Access Token (plain text - will be base64 encoded by Helm)
+  poolName: ""         # Agent pool name
+
+# Container registry
+image:
+  registry: ""         # myacr.azurecr.io
+  pullSecrets:
+    - name: acr-secret
+
+# Agent types to deploy
+agents:
+  go:
+    enabled: true
+    image: gokubeagent
+    tag: latest
+    tagValue: "goonly"
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+
+  node:
+    enabled: false
+    image: nodekubeagent
+    tag: latest
+    tagValue: "nodeonly"
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+
+# KEDA autoscaling
+scaling:
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  cooldownPeriod: 300
+  pollingInterval: 15
+
+# Pod configuration
+nodeSelector:
+  pool: agent
+
+terminationGracePeriodSeconds: 120
+
+# Health checks
+probes:
+  liveness:
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 90
+    periodSeconds: 15

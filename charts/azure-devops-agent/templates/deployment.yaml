@@ -1,0 +1,61 @@
+{{- range $name, $agent := .Values.agents }}
+{{- if $agent.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "azure-devops-agent.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "azure-devops-agent.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}-agent
+spec:
+  replicas: {{ $.Values.scaling.minReplicaCount }}
+  progressDeadlineSeconds: 1800
+  selector:
+    matchLabels:
+      app: {{ include "azure-devops-agent.fullname" $ }}-{{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "azure-devops-agent.fullname" $ }}-{{ $name }}
+        agent-type: {{ $name }}
+    spec:
+      terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
+      containers:
+        - name: agent
+          image: "{{ $.Values.image.registry }}/{{ $agent.image }}:{{ $agent.tag }}"
+          resources:
+            {{- toYaml $agent.resources | nindent 12 }}
+          env:
+            - name: AZP_POOL
+              value: {{ $.Values.azureDevOps.poolName | quote }}
+            - name: AZP_URL
+              value: {{ $.Values.azureDevOps.url | quote }}
+            - name: AZP_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "azure-devops-agent.secretName" $ }}
+                  key: personalAccessToken
+            - name: TAG_VALUE
+              value: {{ $agent.tagValue | quote }}
+          livenessProbe:
+            exec:
+              command: ["/bin/bash", "-c", "pgrep -f 'Agent.Listener' > /dev/null"]
+            initialDelaySeconds: {{ $.Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            exec:
+              command: ["/bin/bash", "-c", "pgrep -f 'Agent.Listener' > /dev/null"]
+            initialDelaySeconds: {{ $.Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.readiness.periodSeconds }}
+      {{- with $.Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}

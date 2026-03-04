@@ -1,0 +1,15 @@
+trigger:
+  - main
+
+pool:
+  name: <AGENT_POOL_NAME>
+  demands:
+    - TAG_VALUE -equals goonly
+
+steps:
+  - script: |
+      echo "Agent is running successfully!"
+      echo "Go version: $(go version)"
+      echo "Node version: $(node --version)"
+      echo "kubectl version: $(kubectl version --client --short)"
+    displayName: "Verify agent capabilities"

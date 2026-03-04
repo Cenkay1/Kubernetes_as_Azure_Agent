@@ -1,0 +1,19 @@
+# Dev environment overrides
+azureDevOps:
+  url: "https://dev.azure.com/myorg"
+  pat: "dev-pat-here"
+  poolName: "MyKubePool-Dev"
+
+image:
+  registry: "myacr.azurecr.io"
+
+agents:
+  go:
+    enabled: true
+    tag: latest
+  node:
+    enabled: false
+
+scaling:
+  minReplicaCount: 0
+  maxReplicaCount: 3

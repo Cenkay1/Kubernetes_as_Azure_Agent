@@ -1,0 +1,25 @@
+{{- range $name, $agent := .Values.agents }}
+{{- if $agent.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "azure-devops-agent.fullname" $ }}-{{ $name }}-scaler
+  labels:
+    {{- include "azure-devops-agent.labels" $ | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "azure-devops-agent.fullname" $ }}-{{ $name }}
+  minReplicaCount: {{ $.Values.scaling.minReplicaCount }}
+  maxReplicaCount: {{ $.Values.scaling.maxReplicaCount }}
+  cooldownPeriod: {{ $.Values.scaling.cooldownPeriod }}
+  pollingInterval: {{ $.Values.scaling.pollingInterval }}
+  triggers:
+    - type: azure-pipelines
+      metadata:
+        poolName: {{ $.Values.azureDevOps.poolName | quote }}
+        organizationURLFromEnv: "AZP_URL"
+      authenticationRef:
+        name: {{ include "azure-devops-agent.triggerAuthName" $ }}
+{{- end }}
+{{- end }}

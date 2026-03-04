@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azdevops-go-agent
+  namespace: azure-agents
+  labels:
+    app.kubernetes.io/name: azdevops-go-agent
+    app.kubernetes.io/part-of: azure-devops-agents
+    app.kubernetes.io/component: agent
+spec:
+  replicas: 2
+  progressDeadlineSeconds: 1800
+  selector:
+    matchLabels:
+      app: azdevops-go-agent
+  template:
+    metadata:
+      labels:
+        app: azdevops-go-agent
+        agent-type: go
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: azdevops-go-agent
+          image: <CONTAINER_REGISTRY>/gokubeagent:<IMAGE_TAG>
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          env:
+            - name: AZP_POOL
+              value: "<AGENT_POOL_NAME>"
+            - name: AZP_URL
+              value: "<AZURE_DEVOPS_ORG_URL>"
+            - name: AZP_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: azure-devops-auth
+                  key: personalAccessToken
+            - name: TAG_VALUE
+              value: "goonly"
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "pgrep -f 'Agent.Listener' > /dev/null"
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "pgrep -f 'Agent.Listener' > /dev/null"
+            initialDelaySeconds: 90
+            periodSeconds: 15
+      imagePullSecrets:
+        - name: acr-secret
+      nodeSelector:
+        pool: agent
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: go-agent-scaledobject
+  namespace: azure-agents
+spec:
+  scaleTargetRef:
+    name: azdevops-go-agent
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  cooldownPeriod: 300
+  pollingInterval: 15
+  triggers:
+    - type: azure-pipelines
+      metadata:
+        poolName: "<AGENT_POOL_NAME>"
+        organizationURLFromEnv: "AZP_URL"
+      authenticationRef:
+        name: azure-devops-trigger-auth

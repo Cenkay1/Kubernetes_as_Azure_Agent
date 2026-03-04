@@ -1,0 +1,82 @@
+trigger: none
+
+parameters:
+  - name: agentType
+    displayName: "Select Agent Type to Build"
+    type: string
+    default: "go"
+    values:
+      - "go"
+      - "node"
+
+  - name: variableGroup
+    displayName: "Variable Group"
+    type: string
+    default: "goonly"
+    values:
+      - "goonly"
+      - "nodeonly"
+
+variables:
+  - group: ${{ parameters.variableGroup }}
+  - name: imageTag
+    value: "$(Build.BuildId)-$(Build.SourceVersion)"
+
+pool:
+  name: $(buildPoolName)
+
+stages:
+  - stage: Build
+    displayName: "Build & Push Agent Image"
+    jobs:
+      - job: BuildImage
+        displayName: "Build ${{ parameters.agentType }} agent"
+        steps:
+          - script: |
+              echo "Copying agent bootstrap script..."
+              cp images/base/agent_installation.sh images/${{ parameters.agentType }}/agent_installation.sh
+            displayName: "Copy shared scripts"
+
+          - task: Docker@2
+            displayName: "Build and push image"
+            inputs:
+              containerRegistry: "$(dockerRegistryServiceConnection)"
+              repository: "$(imageRepository)"
+              command: "buildAndPush"
+              Dockerfile: "images/${{ parameters.agentType }}/Dockerfile"
+              buildContext: "images/${{ parameters.agentType }}"
+              tags: |
+                $(imageTag)
+                latest
+
+  - stage: Deploy
+    displayName: "Deploy to AKS"
+    dependsOn: Build
+    jobs:
+      - job: DeployAgent
+        displayName: "Deploy ${{ parameters.agentType }} agent"
+        steps:
+          - task: replacetokens@6
+            displayName: "Replace tokens in deployment manifest"
+            inputs:
+              root: "k8s/${{ parameters.agentType }}"
+              sources: "deployment.yml"
+              tokenPattern: "default"
+
+          - task: Kubernetes@1
+            displayName: "Apply base resources"
+            inputs:
+              connectionType: "Kubernetes Service Connection"
+              kubernetesServiceEndpoint: "$(kubernetesConnection)"
+              command: "apply"
+              useConfigurationFile: true
+              configuration: "k8s/base/"
+
+          - task: Kubernetes@1
+            displayName: "Apply agent deployment"
+            inputs:
+              connectionType: "Kubernetes Service Connection"
+              kubernetesServiceEndpoint: "$(kubernetesConnection)"
+              command: "apply"
+              useConfigurationFile: true
+              configuration: "k8s/${{ parameters.agentType }}/deployment.yml"
