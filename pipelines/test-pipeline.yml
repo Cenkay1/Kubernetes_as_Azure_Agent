@@ -9,7 +9,7 @@ pool:
 steps:
   - script: |
       echo "Agent is running successfully!"
-      echo "Go version: $(go version)"
+      echo "Go version:   $(go version)"
       echo "Node version: $(node --version)"
-      echo "kubectl version: $(kubectl version --client --short)"
+      echo "kubectl:      $(kubectl version --client -o yaml | grep gitVersion | head -n1 | awk '{print $2}')"
     displayName: "Verify agent capabilities"

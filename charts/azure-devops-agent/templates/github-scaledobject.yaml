@@ -1,0 +1,35 @@
+{{- if .Values.github.enabled }}
+{{- range $name, $runner := .Values.github.runners }}
+{{- if $runner.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "azure-devops-agent.fullname" $ }}-github-{{ $name }}-scaler
+  labels:
+    {{- include "azure-devops-agent.labels" $ | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "azure-devops-agent.fullname" $ }}-github-{{ $name }}
+  minReplicaCount: {{ $.Values.scaling.minReplicaCount }}
+  maxReplicaCount: {{ $.Values.scaling.maxReplicaCount }}
+  cooldownPeriod: {{ $.Values.scaling.cooldownPeriod }}
+  pollingInterval: {{ $.Values.scaling.pollingInterval }}
+  triggers:
+    - type: github-runner
+      metadata:
+        owner: {{ $.Values.github.owner | quote }}
+        runnerScope: {{ $.Values.github.runnerScope | quote }}
+        {{- if $.Values.github.repos }}
+        repos: {{ $.Values.github.repos | quote }}
+        {{- end }}
+        labels: {{ $runner.labels | quote }}
+        targetWorkflowQueueLength: "1"
+        {{- if ne $.Values.github.apiUrl "https://api.github.com" }}
+        githubApiURL: {{ $.Values.github.apiUrl | quote }}
+        {{- end }}
+      authenticationRef:
+        name: {{ include "azure-devops-agent.githubTriggerAuthName" $ }}
+{{- end }}
+{{- end }}
+{{- end }}

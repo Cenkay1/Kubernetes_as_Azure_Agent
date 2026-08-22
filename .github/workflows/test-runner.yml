@@ -1,0 +1,18 @@
+# Smoke test that runs on the Kubernetes-hosted self-hosted runner.
+# GitHub-side mirror of pipelines/test-pipeline.yml (Azure DevOps).
+name: Runner Smoke Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    # Targets the KEDA-scaled pods via their labels (see values.yaml github.runners.*.labels).
+    runs-on: [self-hosted, linux, k8s]
+    steps:
+      - name: Verify runner capabilities
+        run: |
+          echo "Runner is running successfully on $(hostname)"
+          echo "git:  $(git --version)"
+          echo "jq:   $(jq --version)"
+          echo "arch: $(uname -m)"

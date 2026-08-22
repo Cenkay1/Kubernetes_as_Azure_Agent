@@ -1,0 +1,23 @@
+# Secrets & credentials (never commit real PATs)
+*.pat
+*.key
+*.pem
+.env
+.env.*
+secrets/
+
+# Helm packaging artifacts
+charts/**/charts/
+*.tgz
+
+# Azure Pipelines agent working dirs
+_work/
+_diag/
+externals/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.bak

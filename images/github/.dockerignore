@@ -1,0 +1,6 @@
+# Keep build context minimal — only Dockerfile + runner_installation.sh are needed.
+.DS_Store
+.git/
+*.md
+*.swp
+*.bak

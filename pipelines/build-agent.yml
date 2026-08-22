@@ -1,3 +1,14 @@
+# Build & deploy Azure DevOps agent images to AKS.
+#
+# The selected variable group (goonly / nodeonly) MUST define:
+#   buildPoolName                    - agent pool used to run THIS build pipeline
+#   dockerRegistryServiceConnection  - ACR service connection name
+#   imageRepository                  - image repository name (e.g. gokubeagent)
+#   kubernetesConnection             - Kubernetes service connection name
+#   CONTAINER_REGISTRY               - ACR login server (e.g. myacr.azurecr.io)
+#   AGENT_POOL_NAME                  - Azure DevOps pool the agents register into
+#   AZURE_DEVOPS_ORG_URL             - e.g. https://dev.azure.com/myorg
+#   BASE64_ENCODED_PAT               - base64-encoded PAT (mark as secret)
 trigger: none
 
 parameters:
@@ -19,7 +30,7 @@ parameters:
 
 variables:
   - group: ${{ parameters.variableGroup }}
-  - name: imageTag
+  - name: IMAGE_TAG
     value: "$(Build.BuildId)-$(Build.SourceVersion)"
 
 pool:
@@ -46,7 +57,7 @@ stages:
               Dockerfile: "images/${{ parameters.agentType }}/Dockerfile"
               buildContext: "images/${{ parameters.agentType }}"
               tags: |
-                $(imageTag)
+                $(IMAGE_TAG)
                 latest
 
   - stage: Deploy
@@ -56,12 +67,18 @@ stages:
       - job: DeployAgent
         displayName: "Deploy ${{ parameters.agentType }} agent"
         steps:
+          # Manifests use <PLACEHOLDER> tokens, so a custom prefix/suffix is required.
           - task: replacetokens@6
-            displayName: "Replace tokens in deployment manifest"
+            displayName: "Replace tokens in manifests"
             inputs:
-              root: "k8s/${{ parameters.agentType }}"
-              sources: "deployment.yml"
-              tokenPattern: "default"
+              root: "k8s"
+              sources: |
+                base/secret.yml
+                ${{ parameters.agentType }}/deployment.yml
+              tokenPattern: "custom"
+              tokenPrefix: "<"
+              tokenSuffix: ">"
+              missingVarLog: "error"
 
           - task: Kubernetes@1
             displayName: "Apply base resources"

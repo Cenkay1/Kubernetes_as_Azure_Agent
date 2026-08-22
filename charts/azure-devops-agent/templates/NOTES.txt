@@ -1,0 +1,39 @@
+Azure DevOps self-hosted agents deployed.
+
+  Release:   {{ .Release.Name }}
+  Namespace: {{ .Release.Namespace }}
+  Org URL:   {{ .Values.azureDevOps.url }}
+  Pool:      {{ .Values.azureDevOps.poolName }}
+
+Enabled agents:
+{{- range $name, $agent := .Values.agents }}
+{{- if $agent.enabled }}
+  - {{ $name }} -> {{ $.Values.image.registry }}/{{ $agent.image }}:{{ $agent.tag }} (tag: {{ $agent.tagValue }})
+{{- end }}
+{{- end }}
+{{- if .Values.github.enabled }}
+
+Enabled GitHub runners ({{ .Values.github.runnerScope }} scope, owner: {{ .Values.github.owner }}):
+{{- range $name, $runner := .Values.github.runners }}
+{{- if $runner.enabled }}
+  - {{ $name }} -> {{ $.Values.image.registry }}/{{ $runner.image }}:{{ $runner.tag }} (labels: {{ $runner.labels }})
+{{- end }}
+{{- end }}
+{{- end }}
+
+KEDA scales each agent Deployment between {{ .Values.scaling.minReplicaCount }} and {{ .Values.scaling.maxReplicaCount }} replicas
+based on the Azure DevOps job queue (polling every {{ .Values.scaling.pollingInterval }}s).
+
+Check status:
+  kubectl get pods -n {{ .Release.Namespace }}
+  kubectl get scaledobject -n {{ .Release.Namespace }}
+  kubectl logs -f -l app.kubernetes.io/part-of=azure-devops-agents -n {{ .Release.Namespace }}
+
+Verify the agents registered under your pool:
+  {{ .Values.azureDevOps.url }}/_settings/agentpools
+
+{{- if not .Values.azureDevOps.pat }}
+
+WARNING: azureDevOps.pat is empty. Agents cannot authenticate.
+         Set it via --set azureDevOps.pat=... or a values file.
+{{- end }}

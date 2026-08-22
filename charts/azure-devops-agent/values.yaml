@@ -38,6 +38,31 @@ agents:
         cpu: "2"
         memory: "2Gi"
 
+# GitHub Actions self-hosted runners (parallel to the Azure DevOps agents above).
+# Disabled by default; enable to deploy KEDA-autoscaled ephemeral runners.
+github:
+  enabled: false
+  url: "https://github.com"        # GHES: https://github.mycompany.com
+  apiUrl: "https://api.github.com" # GHES: https://github.mycompany.com/api/v3
+  owner: ""                         # org login (or user/repo owner)
+  runnerScope: "org"               # org | repo | ent
+  repos: ""                         # required when runnerScope=repo
+  pat: ""                           # GitHub PAT (plain text - base64 encoded by Helm)
+  ephemeral: true                   # one job per runner, then recycle
+  runners:
+    default:
+      enabled: true
+      image: githubkuberunner
+      tag: latest
+      labels: "self-hosted,linux,k8s"
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "512Mi"
+        limits:
+          cpu: "2"
+          memory: "2Gi"
+
 # KEDA autoscaling
 scaling:
   minReplicaCount: 0

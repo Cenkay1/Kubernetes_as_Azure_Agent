@@ -16,6 +16,8 @@ spec:
       app: {{ include "azure-devops-agent.fullname" $ }}-{{ $name }}
   template:
     metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") $ | sha256sum }}
       labels:
         app: {{ include "azure-devops-agent.fullname" $ }}-{{ $name }}
         agent-type: {{ $name }}
